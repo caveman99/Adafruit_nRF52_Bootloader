@@ -15,7 +15,10 @@ TUSB_PATH    = lib/tinyusb/src
 NRFX_PATH    = lib/nrfx
 SD_PATH      = lib/softdevice/$(SD_FILENAME)
 
-SD_VERSION   = 6.1.1
+ifndef SD_VERSION
+   SD_VERSION   = 6.1.1
+endif
+
 SD_FILENAME  = $(SD_NAME)_nrf52_$(SD_VERSION)
 SD_HEX       = $(SD_PATH)/$(SD_FILENAME)_softdevice.hex
 
@@ -124,13 +127,14 @@ endif
 #------------------------------------------------------------------------------
 
 # all files in src
-C_SRC += $(wildcard src/*.c)
+C_SRC += \
+  src/dfu_ble_svc.c \
+  src/dfu_init.c \
+  src/flash_nrf5x.c \
+  src/main.c \
 
 # all files in boards
-C_SRC += $(wildcard src/boards/*.c)
-
-# all sources files in specific board
-C_SRC += $(wildcard src/boards/$(BOARD)/*.c)
+C_SRC += src/boards/boards.c
 
 # nrfx
 C_SRC += $(NRFX_PATH)/drivers/src/nrfx_power.c
@@ -172,18 +176,25 @@ IPATH += $(SDK_PATH)/drivers_nrf/uart
 
 else
 
+# pinconfig is required for 840 for CF2
+C_SRC += src/boards/$(BOARD)/pinconfig.c
+
 # USB Application ( MSC + UF2 )
-C_SRC += $(wildcard src/usb/*.c)
-C_SRC += $(wildcard src/usb/uf2/*.c)
+C_SRC += \
+	src/usb/msc_uf2.c \
+	src/usb/usb_desc.c \
+	src/usb/usb.c \
+	src/usb/uf2/ghostfat.c
 
 # TinyUSB stack
-C_SRC += $(TUSB_PATH)/portable/nordic/nrf5x/dcd_nrf5x.c
-C_SRC += $(TUSB_PATH)/common/tusb_fifo.c
-C_SRC += $(TUSB_PATH)/device/usbd.c
-C_SRC += $(TUSB_PATH)/device/usbd_control.c
-C_SRC += $(TUSB_PATH)/class/cdc/cdc_device.c
-C_SRC += $(TUSB_PATH)/class/msc/msc_device.c
-C_SRC += $(TUSB_PATH)/tusb.c
+C_SRC += \
+	$(TUSB_PATH)/portable/nordic/nrf5x/dcd_nrf5x.c \
+	$(TUSB_PATH)/common/tusb_fifo.c \
+	$(TUSB_PATH)/device/usbd.c \
+	$(TUSB_PATH)/device/usbd_control.c \
+	$(TUSB_PATH)/class/cdc/cdc_device.c \
+	$(TUSB_PATH)/class/msc/msc_device.c \
+	$(TUSB_PATH)/tusb.c
 
 endif
 
@@ -270,6 +281,18 @@ CFLAGS += -Wno-unused-parameter -Wno-expansion-to-defined
 # TinyUSB tusb_hal_nrf_power_event
 CFLAGS += -Wno-cast-function-type
 
+# Nordic Softdevice SDK header files contains inline assembler that has
+# broken constraints. As a result the IPA-modref pass, introduced in gcc-11,
+# is able to "prove" that arguments to wrapper functions generated with
+# the SVCALL() macro are unused and, as a result, the optimizer will remove
+# code within the callers that sets up these arguments (which results in
+# a broken bootloader). The broken headers come from Nordic-supplied zip
+# files and are not trivial to patch so, for now, we'll simply disable the
+# new gcc-11 inter-procedural optimizations.
+ifeq (,$(findstring unrecognized,$(shell $(CC) $(CFLAGS) -fno-ipa-modref 2>&1)))
+CFLAGS += -fno-ipa-modref
+endif
+
 # Defined Symbol (MACROS)
 CFLAGS += -D__HEAP_SIZE=0
 CFLAGS += -DCONFIG_GPIO_AS_PINRESET
@@ -288,10 +311,9 @@ CFLAGS += -DMK_BOOTLOADER_VERSION='($(word 1,$(_VER)) << 16) + ($(word 2,$(_VER)
 
 # Debug option use RTT for printf
 ifeq ($(DEBUG), 1)
-	RTT_SRC = lib/SEGGER_RTT
-	
-	CFLAGS += -DCFG_DEBUG -DCFG_TUSB_DEBUG=1 -DSEGGER_RTT_MODE_DEFAULT=SEGGER_RTT_MODE_BLOCK_IF_FIFO_FULL
-	IPATH += $(RTT_SRC)/RTT
+  CFLAGS += -DCFG_DEBUG -DSEGGER_RTT_MODE_DEFAULT=SEGGER_RTT_MODE_BLOCK_IF_FIFO_FULL
+  RTT_SRC = lib/SEGGER_RTT
+  IPATH += $(RTT_SRC)/RTT
   C_SRC += $(RTT_SRC)/RTT/SEGGER_RTT.c
 endif
 
@@ -353,6 +375,10 @@ $(BUILD):
 clean:
 	@$(RM) $(BUILD)
 	@$(RM) $(BIN)
+
+# linkermap must be install previously at https://github.com/hathach/linkermap
+linkermap: $(BUILD)/$(OUT_NAME).out
+	@linkermap -v $<.map
 
 # Create objects from C SRC files
 $(BUILD)/%.o: %.c

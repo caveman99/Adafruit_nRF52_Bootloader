@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2018 Ha Thach for Adafruit Industries
+ * Copyright (c) 2021 ddB0515(Dario Budimir)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,45 +22,47 @@
  * THE SOFTWARE.
  */
 
-#ifndef RAYTAC_MDBT50Q_RX_H
-#define RAYTAC_MDBT50Q_RX_H
+#ifndef _NRF52840_BBOARD_H
+#define _NRF52840_BBOARD_H
 
-#define _PINNUM(port, pin)      ((port)*32 + (pin))
+#define _PINNUM(port, pin)    ((port)*32 + (pin))
 
 /*------------------------------------------------------------------*/
 /* LED
  *------------------------------------------------------------------*/
-#define LEDS_NUMBER             1
-#define LED_PRIMARY_PIN         _PINNUM(1, 13)
-#define LED_STATE_ON            0
+#define LEDS_NUMBER           1
+#define LED_PRIMARY_PIN       _PINNUM(0, 7)
+#define LED_STATE_ON          1
 
 /*------------------------------------------------------------------*/
 /* BUTTON
  *------------------------------------------------------------------*/
-#define BUTTONS_NUMBER          2
-
-#define BUTTON_1                _PINNUM(0, 15)
-#define BUTTON_2                _PINNUM(0, 10)
-#define BUTTON_PULL             NRF_GPIO_PIN_PULLUP
+// NOTE: USB UF2 bootloader can be triggered by double pressing RESET
+// App can trigger OTA bootloader by writing DFU_MAGIC_OTA_APPJUM to
+// GPREGRET register if softdevice is not initialized; or by
+// writing DFU_MAGIC_OTA_RESET in case softdevice is initialized.
+#define BUTTONS_NUMBER      2
+#define BUTTON_1            18 // RESET also by default
+#define BUTTON_2            1  // P0.1 not exposed anywhere, FRST n/a
+#define BUTTON_PULL         NRF_GPIO_PIN_PULLUP
 
 //--------------------------------------------------------------------+
 // BLE OTA
 //--------------------------------------------------------------------+
-#define BLEDIS_MANUFACTURER     "Raytac"
-#define BLEDIS_MODEL            "MDBT50Q-RX"
+#define BLEDIS_MANUFACTURER   "ddB0515"
+#define BLEDIS_MODEL          "nRF52840 BBoard"
 
 //--------------------------------------------------------------------+
 // USB
 //--------------------------------------------------------------------+
-
-#define USB_DESC_VID           0x239A
-#define USB_DESC_UF2_PID       0x010B
-#define USB_DESC_CDC_ONLY_PID  0x010B
+#define USB_DESC_VID           0x1d50
+#define USB_DESC_UF2_PID       0x6157
+#define USB_DESC_CDC_ONLY_PID  0x6157
 
 //------------- UF2 -------------//
-#define UF2_PRODUCT_NAME        "Raytac MDBT50Q-RX"
-#define UF2_VOLUME_LABEL        "MDBT50QBOOT"
-#define UF2_BOARD_ID            "nRF52840-MDBT50Q_RX-verD"
-#define UF2_INDEX_URL           "https://www.adafruit.com/product/5199"
+#define UF2_PRODUCT_NAME   "nRF52840 BBoard"
+#define UF2_VOLUME_LABEL   "BBOARDBOOT"
+#define UF2_BOARD_ID       "nRF52840-BBoard-rev2"
+#define UF2_INDEX_URL      "https://github.com/ddB0515/nRF52840-BBoard"
 
-#endif // RAYTAC_MDBT50Q_RX_H
+#endif // _NRF52840_BBOARD_H
